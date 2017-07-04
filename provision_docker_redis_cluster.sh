@@ -6,10 +6,10 @@ DOCKER_IP='127.0.0.1'
 echo "DOCKER IP : $DOCKER_IP"
 
 # Создаем два redis-сервиса, которые на хост-машине будут
-# доступны по 127.0.0.1:6380 и 127.0.0.1:6381, друг для друга
+# доступны по 127.0.0.1:6379 и 127.0.0.1:6380, друг для друга
 # они будут доступны по $REDIS_0_IP:6379 и REDIS_1_IP:6379
-docker run --name redis_0 -t -d -i -p 6380:6379 redis:2.8
-docker run --name redis_1 -t -d -i -p 6381:6379 redis:2.8
+docker run --name redis_0 -t -d -i -p 6379:6379 redis:2.8
+docker run --name redis_1 -t -d -i -p 6380:6379 redis:2.8
 
 # Получаем IP-адреса redis-хостов
 REDIS_0_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' redis_0)
@@ -35,9 +35,9 @@ echo "SENTINEL_0_IP : $SENTINEL_0_IP"
 echo "SENTINEL_1_IP : $SENTINEL_1_IP"
 echo "SENTINEL_2_IP : $SENTINEL_2_IP"
 
-# Второй редис $REDIS_1_IP:6379 или с хост-машины 127.0.0.1:6381 делаем слевом
+# Второй редис $REDIS_1_IP:6379 или с хост-машины 127.0.0.1:6380 делаем слевом
 # или подчиненым первом редис-инстансу
-redis-cli -h $REDIS_1_IP -p 6379 slaveof $REDIS_0_IP 6379
+redis-cli -h $DOCKER_IP -p 6380 slaveof $REDIS_0_IP 6379
 
 redis-cli -p 26379 sentinel monitor testing $REDIS_0_IP 6379 2
 redis-cli -p 26379 sentinel set testing down-after-milliseconds 1000
