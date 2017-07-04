@@ -50,13 +50,13 @@ Play with it
 Attach to a sentinel
 
 ```
-sudo docker attach sentinel_1
+docker attach sentinel_1
 ```
 
 Pause/Unpause redis instances
 
 ```
-sudo docker pause redis_0
-sudo docker unpause redis_0
+docker pause redis_0
+docker unpause redis_0
 ```
 
