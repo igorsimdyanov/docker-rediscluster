@@ -1,34 +1,42 @@
 #!/bin/bash
 
-DOCKER_IP=$(ifconfig docker0 | grep 'inet addr:' | cut -d: -f2  | awk '{ print $1}')
+# Кластер на локальной машине
+DOCKER_IP='127.0.0.1'
 
 echo "DOCKER IP : $DOCKER_IP"
 
-# create two redis instances
-sudo docker run --name redis_0 -t -d -i redis:2.8 
-sudo docker run --name redis_1 -t -d -i redis:2.8 
+# Создаем два redis-сервиса, которые на хост-машине будут
+# доступны по 127.0.0.1:6380 и 127.0.0.1:6381, друг для друга
+# они будут доступны по $REDIS_0_IP:6379 и REDIS_1_IP:6379
+docker run --name redis_0 -t -d -i -p 6380:6379 redis:2.8
+docker run --name redis_1 -t -d -i -p 6381:6379 redis:2.8
 
-#get master ip
-REDIS_0_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' redis_0)
-REDIS_1_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' redis_1)
+# Получаем IP-адреса redis-хостов
+REDIS_0_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' redis_0)
+REDIS_1_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' redis_1)
 
 echo "REDIS_0_IP : $REDIS_0_IP"
 echo "REDIS_1_IP : $REDIS_1_IP"
 
-# start up the sentinels
-sudo docker run --name sentinel_0 -d -p 26379:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26379
-sudo docker run --name sentinel_1 -d -p 26378:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26378
-sudo docker run --name sentinel_2 -d -p 26377:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26377
+# Запускаем три sentinel-хоста
+# 127.0.0.1:26379 <=> SENTINEL_0_IP:26379
+# 127.0.0.1:26378 <=> SENTINEL_1_IP:26379
+# 127.0.0.1:26377 <=> SENTINEL_2_IP:26379
+docker run --name sentinel_0 -d -p 26379:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26379
+docker run --name sentinel_1 -d -p 26378:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26378
+docker run --name sentinel_2 -d -p 26377:26379 joshula/redis-sentinel --sentinel announce-ip $DOCKER_IP --sentinel announce-port 26377
 
-#get sentinel ips
-SENTINEL_0_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_0)
-SENTINEL_1_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_1)
-SENTINEL_2_IP=$(sudo docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_2)
+# Получаем IP-адреса sentinel-хостов
+SENTINEL_0_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_0)
+SENTINEL_1_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_1)
+SENTINEL_2_IP=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' sentinel_2)
 
 echo "SENTINEL_0_IP : $SENTINEL_0_IP"
 echo "SENTINEL_1_IP : $SENTINEL_1_IP"
 echo "SENTINEL_2_IP : $SENTINEL_2_IP"
 
+# Второй редис $REDIS_1_IP:6379 или с хост-машины 127.0.0.1:6381 делаем слевом
+# или подчиненым первом редис-инстансу
 redis-cli -h $REDIS_1_IP -p 6379 slaveof $REDIS_0_IP 6379
 
 redis-cli -p 26379 sentinel monitor testing $REDIS_0_IP 6379 2
